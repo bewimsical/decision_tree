@@ -64,7 +64,7 @@ class DecisionTree:
             return 0
         child_entropy = (n_left / n) * self._entropy(left_y) + (n_right / n) * self._entropy(right_y)
         return parent_entropy - child_entropy
-    
+    #also pre-pruning
     def _entropy(self, y):
         counts = np.bincount(y)
         probabilities = counts / np.sum(counts)
@@ -79,22 +79,40 @@ class DecisionTree:
         if x[node.feature] < node.threshold:
             return self._traverse_tree(x, node.left)
         return self._traverse_tree(x, node.right)
+##post pruning using reduced error pruning  
+    def post_prune(self, X_val, y_val):
+        self.root = self._prune_tree(self.root, X_val, y_val)
 
+    def _prune_tree(self, node, X_val, y_val):
+        if node.is_leaf():
+            return node
+        node.left = self._prune_tree(node.left, X_val, y_val)
+        node.right = self._prune_tree(node.right, X_val, y_val)
+        if node.left.is_leaf() and node.right.is_leaf():
+            y_pred_subtree = np.array([self._traverse_tree(x, node) for x in X_val])
+            current_accuracy = np.mean(y_pred_subtree == y_val)
+            majority_label = Counter([node.left.value, node.right.value]).most_common(1)[0][0]
+            y_pred_pruned = np.full_like(y_val, fill_value=majority_label)
+            pruned_accuracy = np.mean(y_pred_pruned == y_val)
+            if pruned_accuracy >= current_accuracy:
+                return Node(value=majority_label)
+        return node
+    
 # Example usage:
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from sklearn.datasets import load_wine
+    #import matplotlib.pyplot as plt
+    from sklearn.datasets import load_iris
     from sklearn.model_selection import train_test_split
     from sklearn.tree import DecisionTreeClassifier
     from sklearn.tree import plot_tree
     from sklearn.inspection import DecisionBoundaryDisplay
     
-    data = load_wine()
+    data = load_iris()
     X, y = data.data, data.target
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     #max depth = pre-pruning
-    tree = DecisionTree()
+    tree = DecisionTree(max_depth=3)
     tree.fit(X_train, y_train)
     predictions = tree.predict(X_test)
     
